@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import com.jrts.O2Ainterfaces.IResourceAI;
 import com.jrts.O2Ainterfaces.IUnit;
 import com.jrts.common.AgentStatus;
-import com.jrts.environment.Floor;
 import com.jrts.environment.Position;
 import com.jrts.environment.World;
 
@@ -107,6 +106,7 @@ public class ResourceAI extends JrtsAgent implements IResourceAI{
 		AID worker = (free.length > 0 ? free[0].getName() : createWorker());
 		if (worker != null) {
 			ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+			msg.setConversationId("order");
 			msg.addReceiver(worker);
 			msg.setContent(AgentStatus.WOOD_CUTTING);
 			send(msg);
@@ -114,8 +114,7 @@ public class ResourceAI extends JrtsAgent implements IResourceAI{
 	}
 
 	@Override
-	protected Floor updatePerception() {
-		return receivePerception();
+	protected void updatePerception() {
 	}
 
 	@Override

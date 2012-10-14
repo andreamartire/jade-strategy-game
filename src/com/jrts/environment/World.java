@@ -194,22 +194,8 @@ public class World {
 	 * @return a floor object where the perceived cells are the same of the world's floor
 	 * and the others are set to UNKNOWN
 	 */
-	public synchronized Floor getPerception(Position center, int sight) {
-		Floor perception = new Floor(floor.rows, floor.cols);
-		for (int row = 0; row < floor.rows; row++) {
-			for (int col = 0; col < floor.cols; col++) {
-				boolean inRange = Math.abs(center.row-row) <= sight && Math.abs(center.col-col) <= sight;
-				Cell perceived;
-				if (inRange) {
-					Cell cell = floor.get(row, col);
-					perceived = new Cell(cell.type, cell.id);
-				} else {
-					perceived =  new Cell(CellType.UNKNOWN);
-				}
-				perception.set(row, col, perceived);
-			}
-		}
-		return perception;
+	public synchronized Perception getPerception(Position center, int sight) {
+		return new Perception(floor, center, sight);
 	}
 
 	public synchronized int takeEnergy(Position target, int amount) {

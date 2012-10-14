@@ -5,7 +5,11 @@ import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import jade.lang.acl.UnreadableException;
 
+import java.io.IOException;
 import java.util.Random;
 
 import com.jrts.O2Ainterfaces.IUnit;
@@ -16,9 +20,10 @@ import com.jrts.behaviours.ReceiveOrders;
 import com.jrts.common.GameConfig;
 import com.jrts.environment.CellType;
 import com.jrts.environment.Direction;
-import com.jrts.environment.Floor;
+import com.jrts.environment.Perception;
 import com.jrts.environment.Position;
 import com.jrts.environment.World;
+import com.jrts.environment.WorldMap;
 
 @SuppressWarnings("serial")
 public abstract class Unit extends JrtsAgent implements IUnit {
@@ -26,13 +31,15 @@ public abstract class Unit extends JrtsAgent implements IUnit {
 
 	private Position position = null;
 	private String status;
+	private Perception perception;
+	private DFAgentDescription agentDescription;
+	private ServiceDescription basicService;
+	
 	int life;
 	int speed;
 	int forceOfAttack;
 	int sight;
 	
-	private DFAgentDescription agentDescription;
-	private ServiceDescription basicService;
 
 	public Unit() {
 		super();
@@ -69,7 +76,7 @@ public abstract class Unit extends JrtsAgent implements IUnit {
 	}
 
 	public void goThere(int x, int y) {
-		updatePerception();
+		System.out.println("go there");
 		addBehaviour(new FollowPathBehaviour(this, x, y, GameConfig.UNIT_MOVING_ATTEMPTS));
 	}
 	
@@ -78,14 +85,22 @@ public abstract class Unit extends JrtsAgent implements IUnit {
 	}
 
 	@Override
-	protected Floor updatePerception() {
-		Floor perception = World.getInstance().getPerception(getPosition(), sight);
+	protected void updatePerception() {
+		perception = World.getInstance().getPerception(getPosition(), sight);
 		//send perception to Master
-		sendPerception(perception, getMasterAID());
-		return perception;
+		ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+		msg.setConversationId(Perception.class.getSimpleName());
+		msg.addReceiver(getMasterAID());
+		try {
+			msg.setContentObject(perception);
+			send(msg);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public boolean move(Direction dir){
+		System.out.println("moving");
 		return World.getInstance().move(this.position, dir);
 	}
 
@@ -198,35 +213,25 @@ public abstract class Unit extends JrtsAgent implements IUnit {
 	}
 	
 	public Position findNearest(CellType type) {
-		double distance = Double.MAX_VALUE;
-		Position nearestPosition = null;
-		Floor perception = getPerception();
-		for (int i = 0; i < perception.getRows(); i++) {
-			for (int j = 0; j < perception.getCols(); j++) {
-				Position p = new Position(i, j);
-				if (perception.get(p).getType() == type) {
-					double currentDistance = position.distance(p);
-					if (currentDistance < distance) {
-						nearestPosition = p;
-						distance = currentDistance;
-					}
-				}
-			}
+		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+		String id = WorldMap.class.getSimpleName();
+		msg.setConversationId(id);
+		msg.addReceiver(getMasterAID());
+		send(msg);
+		ACLMessage response = blockingReceive(MessageTemplate.MatchConversationId(id));
+		WorldMap map;
+		try {
+			map = (WorldMap) response.getContentObject();
+			return map.findNearest(getPosition(), type);
+		} catch (UnreadableException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		return nearestPosition;
+		return null;
 	}
-	
-//	public Position findNearest(Position p, int distance, CellType type) {
-//		double maxDistance = Double.MAX_VALUE;
-//		
-//		for (int minDistance = 1; minDistance <= maxDistance; minDistance++) {
-//			for (Direction d : Direction.ALL) {
-//				Position candidate = findNearest(p.step(d), minDistance-1, type);
-//				if (World.getInstance().getCell(candidate).getType() == type)
-//					return candidate;
-//			}
-//		}
-//		return null;
-//	}
+
+	public Perception getPerception() {
+		return perception;
+	}
 	
 }

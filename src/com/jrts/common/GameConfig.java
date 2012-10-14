@@ -13,7 +13,7 @@ public class GameConfig {
 	public static final int WORKER_SPEED = 15;
 	public static final int SOLDIER_SPEED = 7;
 	
-	public static final int WORKER_SIGHT = 4;
+	public static final int WORKER_SIGHT = 40; //TODO change
 	public static final int SOLDIER_SIGHT = 4;
 	public static final int CITY_CENTER_SIGHT = 5;
 	

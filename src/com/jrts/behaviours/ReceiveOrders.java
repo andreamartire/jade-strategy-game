@@ -22,7 +22,7 @@ public class ReceiveOrders extends CyclicBehaviour {
 
 	@Override
 	public void action() {
-		MessageTemplate pattern = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
+		MessageTemplate pattern = MessageTemplate.MatchConversationId("order");
 		ACLMessage msg = myAgent.receive(pattern);
 		if (msg != null) {
 			parseOrder(msg.getContent());

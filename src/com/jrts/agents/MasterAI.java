@@ -1,24 +1,30 @@
 package com.jrts.agents;
 
+import java.io.IOException;
+
 import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.lang.acl.UnreadableException;
 import jade.wrapper.AgentController;
 import jade.wrapper.ControllerException;
 import jade.wrapper.PlatformController;
 
 import com.jrts.O2Ainterfaces.Team;
 import com.jrts.common.GameConfig;
-import com.jrts.environment.Floor;
+import com.jrts.environment.Perception;
 import com.jrts.environment.Position;
 import com.jrts.environment.World;
+import com.jrts.environment.WorldMap;
 
 
 @SuppressWarnings("serial")
 public class MasterAI extends JrtsAgent implements Team {
 	
 	AID resourceAID;
+	
+	WorldMap worldMap;
 	
 	int food, wood;
 	
@@ -29,6 +35,7 @@ public class MasterAI extends JrtsAgent implements Team {
 	protected void setup(){
 		super.setup();
 		World world = World.getInstance();
+		worldMap = new WorldMap(world.getRows(), world.getCols());
 		setTeam(getAID().getLocalName());
 		world.addTeam(getTeam());
 		
@@ -49,21 +56,43 @@ public class MasterAI extends JrtsAgent implements Team {
 			e.printStackTrace();
 		}
 		
+//		addBehaviour(new CyclicBehaviour() {
+//			@Override
+//			public void action() {
+//				// listen if a food/wood update message arrives from the resourceAi
+//				ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+//				if (msg != null) {
+//					String mess = msg.getContent();
+//					if (mess.matches("food: \\d+ wood: \\d+")) {
+//						String[] array = mess.split("\\s");
+//						food = Integer.parseInt(array[1]);
+//						wood = Integer.parseInt(array[3]);
+////						System.out.println("Ricevute info resources: " + mess);
+//					}
+//				} else {
+//					// if no message is arrived, block the behaviour
+//					block();
+//				}
+//			}
+//		});
+		
 		addBehaviour(new CyclicBehaviour() {
+			
 			@Override
 			public void action() {
-				// listen if a food/wood update message arrives from the resourceAi
-				ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+				MessageTemplate mt = MessageTemplate.MatchConversationId(WorldMap.class.getSimpleName());
+				ACLMessage msg = receive(mt);
 				if (msg != null) {
-					String mess = msg.getContent();
-					if (mess.matches("food: \\d+ wood: \\d+")) {
-						String[] array = mess.split("\\s");
-						food = Integer.parseInt(array[1]);
-						wood = Integer.parseInt(array[3]);
-//						System.out.println("Ricevute info resources: " + mess);
+					ACLMessage reply = msg.createReply();
+					try {
+						reply.setContentObject(worldMap);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
+					System.out.println("replying");
+					send(reply);
 				} else {
-					// if no message is arrived, block the behaviour
 					block();
 				}
 			}
@@ -71,22 +100,30 @@ public class MasterAI extends JrtsAgent implements Team {
 	}
 	
 	@Override
-	protected Floor updatePerception() {
+	protected void updatePerception() {
 		World world = World.getInstance();
 		//the area near the building is always visible
 		Position citycenter = world.getBuilding(getTeam());
-		Floor center = world.getPerception(citycenter, GameConfig.CITY_CENTER_SIGHT);
+		Perception center = world.getPerception(citycenter, GameConfig.CITY_CENTER_SIGHT);
 		//TODO maybe do something if an enemy is detected
-		Floor perception = getPerception();
-		perception.mergeWith(center);
-		if (perception.get(citycenter).getResourceEnergy() <= 0) {
-			//TODO do something if the main building has been destroyed
-		}
+		//TODO check if the main building has been destroyed
+		worldMap.update(center);
 		//wait from perception messages from other agents
-		receivePerception();
-		//update resourcesAI's perception
-		sendPerception(perception, resourceAID);
-		return perception;
+		receivePerceptions();
+	}
+	
+	public void receivePerceptions() {
+		MessageTemplate mt = MessageTemplate.MatchConversationId(Perception.class.getSimpleName());
+		ACLMessage msg = receive(mt);
+		while (msg != null) {
+			try {
+				Perception info = (Perception) msg.getContentObject();
+				worldMap.update(info);
+			} catch (UnreadableException e) {
+				e.printStackTrace();
+			}
+			msg = receive(mt);
+		}
 	}
 
 	/** O2A methods (for use in non-agent java objects) */
